@@ -1,0 +1,5 @@
+DEFAULT proxmox-auto
+  LABEL proxmox-auto
+    KERNEL vmlinuz
+    INITRD initrd.img
+    APPEND ro ramdisk_size=16777216 splash=vebose proxmox-start-auto-installer

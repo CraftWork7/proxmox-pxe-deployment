@@ -1,0 +1,38 @@
+dhcp-authoritative
+interface={{ pxe_interface }}
+bind-interfaces
+
+# Enable  logging
+log-queries
+log-dhcp
+
+# Log file path (dnsmasq will log here instead of syslog)
+log-facility=/var/log/dnsmasq.log
+
+# Enable TFTP server
+enable-tftp
+
+# Set the root directory for TFTP files
+tftp-root={{ tftp_root }}
+
+
+# DHCP range and options including option 250 for Proxmox installer URL
+dhcp-range={{ dhcp_range_start }},{{ dhcp_range_end }},12h
+dhcp-option=3,{{ gateway }}         # Router/Gateway
+dhcp-option=6,{{ dns }}            # DNS Server
+
+# TFTP server IP (next-server)
+dhcp-option=66,{{ pxe_server_ip }}
+
+# PXE boot file
+dhcp-boot=pxelinux.0
+
+# Host Specific configuration
+
+{% for server in pve_server_cfg %}  
+{% set my_tag = server.network.mac_address | replace(':', '_') | lower %}
+# tag the target host: {{ server.network.mac_address }} and send option 250.
+dhcp-host={{ server.network.mac_address }},{{ server.network.ip_address }},set:{{ my_tag }}
+dhcp-option=tag:{{ my_tag }},250,http://{{ pxe_server_ip }}/answers/{{ my_tag | replace("_", "-") }}.toml
+
+{% endfor %}

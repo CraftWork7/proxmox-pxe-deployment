@@ -1,0 +1,29 @@
+#!/bin/bash
+WORK_DIR="/tmp/initrd-work"
+ISO="{{ pve_iso_tmp }}/proxmox-auto.iso"
+TEMP_ISO_DIR="/mnt/temp-iso"
+
+umount $TEMP_ISO_DIR
+
+mkdir $WORK_DIR
+mkdir -p $TEMP_ISO_DIR
+mount -o loop $ISO $TEMP_ISO_DIR
+
+cp $TEMP_ISO_DIR/boot/initrd.img $WORK_DIR
+cp $TEMP_ISO_DIR/boot/linux26  {{ tftp_root }}/vmlinuz
+
+# Copy the iso
+mkdir $WORK_DIR/extracted/ 
+cp $ISO $WORK_DIR/extracted/proxmox.iso
+
+# Extract initrd
+zstd -d $WORK_DIR/initrd.img -o $WORK_DIR/initrd.img.cpio
+pushd $WORK_DIR/extracted/
+cpio -idv < ../initrd.img.cpio
+find . | cpio -H newc -o | gzip -9 > {{ tftp_root }}/initrd.img
+
+# Fix SELinux label
+restorecon -R -v /var/lib/tftpboot
+
+umount $TEMP_ISO_DIR
+rm -rf $WORK_DIR

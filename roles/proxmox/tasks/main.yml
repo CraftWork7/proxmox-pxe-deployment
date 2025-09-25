@@ -1,0 +1,132 @@
+- name: Set the variable tempory directory
+  ansible.builtin.set_fact:
+    pve_iso_tmp: "/tmp/pve-pxe"
+  tags: proxmox
+
+- name: Ensure the temporory directory exist
+  ansible.builtin.file:
+    path: "{{ pve_iso_tmp }}"
+    state: directory
+    mode: "0755"
+  tags: proxmox
+
+- name: Check if Proxmox VE ISO exists
+  ansible.builtin.stat:
+    path: "{{ pve_iso_tmp }}/proxmox-ve.iso"
+  register: iso_stat
+
+- name: Download Proxmox VE ISO
+  ansible.builtin.get_url:
+    url: "{{ proxmox_iso_url }}"
+    dest: "{{ pve_iso_tmp }}/proxmox-ve.iso"
+    mode: '0644'
+  when: not iso_stat.stat.exists
+  tags: proxmox
+
+#- name: Mount Proxmox ISO and extract kernel & initrd
+#  ansible.builtin.shell: |
+#    mkdir -p /mnt/proxmoxiso
+#    mount -o loop /tmp/proxmox-ve.iso /mnt/proxmoxiso
+#    cp /mnt/proxmoxiso/boot/linux26 {{ tftp_root }}/vmlinuz
+#    cp /mnt/proxmoxiso/boot/initrd.img {{ tftp_root }}/initrd.img
+#    umount /mnt/proxmoxiso
+#    rmdir /mnt/proxmoxiso
+#  args:
+#    creates: "{{ tftp_root }}/vmlinuz"
+#  tags: proxmox
+
+
+- name: Set the variable for the answer directory location
+  ansible.builtin.set_fact:
+    http_answer_root: "{{ http_root }}/answers"
+  tags: proxmox
+
+- name: Ensure answer directory exists on http
+  ansible.builtin.file:
+    path: "{{ http_answer_root }}"
+    state: directory
+    mode: "0755"
+  tags: proxmox
+
+- name: Create  answer.toml preseed  files for each target proxmox server
+  ansible.builtin.template:
+    src: "answer.toml.j2"
+    dest: "{{ http_answer_root }}/{{ item.network.mac_address | replace(':', '-') | lower }}.toml"
+    mode: "0644"
+  with_items: "{{ pve_server_cfg }}"
+  vars:
+    fqdn: "{{ item.fqdn }}"
+    filesystem: "{{ item.disk.filesystem }}"
+    disk_list: "{{ item.disk.disk_list }}"
+  tags: proxmox
+
+
+- name: Ensure the build context directory exists
+  ansible.builtin.file:
+    path: "/tmp/proxmox-auto-install-assistant"
+    state: directory
+    mode: "0755"
+
+- name: Create Containerfile for building
+  ansible.builtin.copy:
+    src: "Containerfile"
+    dest: "/tmp/proxmox-auto-install-assistant/Containerfile"
+    mode: "0644"
+
+- name: Set the variable for the answer directory location
+  ansible.builtin.set_fact:
+    proxmox_image_name: "proxmox_auto_assistant"
+  tags: proxmox
+
+- name: Build the Proxmox Auto Install Assistant image
+  containers.podman.podman_image:
+    name: "{{ proxmox_image_name }}"
+    path: "/tmp/proxmox-auto-install-assistant"
+    state: build
+    force: true
+  register: image_build_result
+
+- name: Ensure container is running to execute proxmox assistant
+  containers.podman.podman_container:
+    name: "{{ proxmox_image_name }}_app"
+    image: "{{ proxmox_image_name }}:latest"
+    state: started
+    rm: true
+    # Keep the container running long enough for the exec task
+    command: ["sleep", "infinity"]
+    # Bind mount a host directory to a container path
+    volumes:
+      - "{{ pve_iso_tmp }}:/tmp:Z"
+  register: start_result
+
+
+- name: Run proxmox assistant to generate auto iso
+  containers.podman.podman_container_exec:
+    name: "{{ proxmox_image_name }}_app"
+    command: "sh -c 'proxmox-auto-install-assistant prepare-iso --fetch-from http --output /tmp/proxmox-auto.iso /tmp/proxmox-ve.iso'"
+  register: exec_output
+
+#- name: Display image build result
+#  ansible.builtin.debug:
+#    var: exec_output
+
+- name: Stop the container
+  containers.podman.podman_container:
+    name: "{{ proxmox_image_name }}_app"
+    state: stopped
+
+- name: Create Containerfile for building
+  ansible.builtin.template:
+    src: "build-new-initrd.sh.j2"
+    dest: "/tmp/build-new-initrd.sh"
+    mode: "0755"
+
+- name: Run the script to generate new initrd  ( It can take minutes ... ☕☕☕ )
+  ansible.builtin.command: "/tmp/build-new-initrd.sh"
+  register: generated_new_initrd
+  ignore_errors: false
+  tags: proxmox
+
+#- name: Display image build result
+#  ansible.builtin.debug:
+#    var: generated_new_initrd

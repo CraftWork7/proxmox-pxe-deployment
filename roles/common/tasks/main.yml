@@ -1,0 +1,17 @@
+---
+
+- name: Install basic tools
+  ansible.builtin.dnf:
+    name:
+      - vim
+      - wget
+      - curl
+    state: present
+  tags: common
+
+- name: Update all packages
+  ansible.builtin.dnf:
+    name: "*"
+    state: latest
+    update_only: true
+  tags: common

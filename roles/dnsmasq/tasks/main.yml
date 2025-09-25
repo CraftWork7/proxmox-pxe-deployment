@@ -1,0 +1,151 @@
+- name: Install dnsmasq
+  ansible.builtin.dnf:
+    name: dnsmasq
+    state: present
+  tags:
+    - dnsmasq
+    - dhcp
+    - tftp
+
+- name: Install syslinux for PXE boot files
+  ansible.builtin.dnf:
+    name: syslinux
+    state: present
+  tags: tftp
+
+- name: Create interface detection script from template
+  ansible.builtin.template:
+    src: find_pxe_interface.sh.j2
+    dest: /tmp/find_pxe_interface.sh
+    mode: '0755'
+  tags:
+    - dhcp
+    - tftp
+
+- name: Run the interface detection script
+  ansible.builtin.command: /tmp/find_pxe_interface.sh
+  register: pxe_interface_output
+  ignore_errors: true
+  tags:
+    - dhcp
+    - tftp
+
+- name: Set PXE interface fact
+  ansible.builtin.set_fact:
+    pxe_interface: "{{ pxe_interface_output.stdout }}"
+  when: pxe_interface_output.rc == 0
+  tags:
+    - dhcp
+    - tftp
+
+- name: Debug selected network interface
+  ansible.builtin.debug:
+    msg: "Selected PXE Interface: {{ pxe_interface }}"
+  when: pxe_interface is defined and pxe_interface != ""
+  tags:
+    - dhcp
+    - tftp
+
+- name: Fail if no network interface was found for the subnet
+  ansible.builtin.fail:
+    msg: "No network interface found for the specified subnet {{ dhcp_subnet }}/{{ dhcp_netmask }}"
+  when: pxe_interface_output.rc != 0
+  tags:
+    - dhcp
+    - tftp
+
+- name: Get the IP address of the selected PXE interface
+  ansible.builtin.shell: "ip -o -4 addr show dev {{ pxe_interface }} | awk '{print $4}' | cut -d/ -f1"
+  register: pxe_interface_ip_output
+  when: pxe_interface is defined and pxe_interface != ""
+  tags:
+    - dhcp
+    - tftp
+
+- name: Set PXE server IP fact
+  ansible.builtin.set_fact:
+    pxe_server_ip: "{{ pxe_interface_ip_output.stdout }}"
+  when: pxe_interface_ip_output is defined
+  tags:
+    - dhcp
+    - tftp
+
+- name: Debug PXE server IP
+  ansible.builtin.debug:
+    msg: "PXE Server IP: {{ pxe_server_ip }}"
+  tags:
+    - dhcp
+    - tftp
+
+
+- name: Create dnsmasq configuration
+  ansible.builtin.template:
+    src: proxmox.conf.j2
+    dest: /etc/dnsmasq.d/proxmox.conf
+    mode: '0755'
+  tags:
+    - dnsmasq
+    - dhcp
+    - tftp
+
+- name: Ensure firewall allows DHCP traffic
+  ansible.posix.firewalld:
+    service: dhcp
+    permanent: true
+    state: enabled
+    immediate: true
+  tags: dhcp
+
+- name: Open TFTP port in the firewall
+  ansible.posix.firewalld:
+    service: tftp
+    permanent: true
+    state: enabled
+    immediate: true
+  tags: tftp
+
+- name: Ensure TFTP root exists
+  ansible.builtin.file:
+    path: "{{ tftp_root }}/pxelinux.cfg"
+    state: directory
+    mode: "0755"
+  tags: tftp
+
+- name: Ensure dnsmasq server is enabled and started
+  ansible.builtin.service:
+    name: dnsmasq
+    state: restarted
+    enabled: true
+  tags:
+    - dhcp
+    - tftp
+
+- name: Copy needed files for pxe boot to TFTP root
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ tftp_root }}/{{ item.dest }}"
+    mode: "0644"
+    remote_src: true
+  loop:
+    - { src: '/usr/share/syslinux/pxelinux.0', dest: 'pxelinux.0' }
+    - { src: '/usr/share/syslinux/ldlinux.c32', dest: 'ldlinux.c32' }
+    - { src: '/usr/share/syslinux/libcom32.c32', dest: 'libcom32.c32' }
+    - { src: '/usr/share/syslinux/libutil.c32', dest: 'libutil.c32' }
+    - { src: '/usr/share/syslinux/menu.c32', dest: 'menu.c32' }
+  tags: tftp
+
+- name: Create the default tfpt menu file
+  ansible.builtin.template:
+    src: pxe-menu-default.j2
+    dest: "{{ tftp_root }}/pxelinux.cfg/default"
+    mode: '0644'
+  tags:
+    - tftp
+
+- name: Create logrotate entry for dnsmasq logs
+  ansible.builtin.copy:
+    src: logrotate
+    dest: "/etc/logrotate.d/dnsmasq"
+    mode: '0644'
+  tags:
+    - tftp

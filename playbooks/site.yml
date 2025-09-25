@@ -1,0 +1,26 @@
+---
+# Main playbook to configure a PXE/Kickstart server on a Rocky Linux machine
+
+- name: Configure PXE Server for Proxmox Auto installation
+  hosts: pxe_server     
+  become: yes             
+  gather_facts: yes     
+
+  roles:
+    # Each 'role' below is a group of related tasks that configure specific components of the PXE server
+
+    - role: common       # 'common' role for general system setup, like updating packages and installing prerequisites
+      tags: common       # Allows you to run this role independently using 'ansible-playbook site.yml --tags "common"'
+
+    - role: podman       # 'podman' role to install and configure Podman, which is used for container management on the PXE server
+      tags: podman       # You can run just the Podman setup tasks with 'ansible-playbook site.yml --tags "podman"'
+
+    - role: http         # 'http' role to set up the HTTP server, which will host Kickstart and installation files
+      tags: http         # Allows you to run only the HTTP setup tasks with 'ansible-playbook site.yml --tags "http"'
+      
+    - role: dnsmasq      # 'dnsmaq' role to setup dnsmasq on the target server for providing dhcp, tftp and dns
+      tags: dnsmasq
+  
+    - role: proxmox      # 'proxmox' role to setup proxmox on the target server
+      tags: proxmox
+  

@@ -1,0 +1,23 @@
+[global]
+keyboard = "{{ pve_keyboard }}"
+country = "{{ pve_country }}"
+fqdn = "{{ fqdn }}"
+mailto = "{{ pve_mailto }}"
+timezone = "{{ pve_timezone }}"
+root_password = "{{ pve_root_password }}"
+root_ssh_keys = [
+{% for ssh_key in pve_root_ssh_keys %}
+"{{ ssh_key }}"{% if not loop.last %},{% endif %}
+{% endfor %}
+]
+
+[network]
+source = "from-dhcp"
+
+[disk-setup]
+filesystem = "{{ filesystem }}"
+disk_list = [ "{{ disk_list | join(',') }}" ] # List of disks to use (e.g., "sda", "nvme0n1")
+
+#[first-boot]
+#source = "from-http" # Or "from-http" if fetching a script from an HTTP server
+# exec = "/path/to/script.sh" # Optional: Path to a script to execute on first boot

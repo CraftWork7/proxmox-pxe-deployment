@@ -1,0 +1,66 @@
+############################################################################################################
+# PXE, DHCP, HTTP configuration settings
+
+gateway: 192.168.1.10
+dns: 1.1.1.1
+netmask: 255.255.255.0
+
+dhcp_subnet: 192.168.1.0          # Corrected subnet for the DHCP server
+dhcp_netmask: 255.255.255.0        # Netmask for the subnet
+dhcp_broadcast: 192.168.1.255     # Broadcast address for the subnet
+dhcp_range_start: 192.168.1.50    # Starting IP range for DHCP leases
+dhcp_range_end: 192.168.1.100     # Ending IP range for DHCP leases
+
+
+tftp_root: "/var/lib/tftpboot"    # Directory serving pxe files
+http_root: "/var/www/html"        # Directory serving web server files
+http_port: 80                     # Web server port
+
+
+# Url to download the latest proxmox iso
+proxmox_iso_url: "https://enterprise.proxmox.com/iso/proxmox-ve_9.0-1.iso"
+
+
+############################################################################################################
+# Promox Server configuration settings
+
+# root password for all promox servers
+pve_root_password: "VerySecurePassword!"
+
+# List ssh keys for the root user
+pve_root_ssh_keys:
+  - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAB
+  - ssh-rsa AAAAB3NzaC1yc2EAAAAD...
+  - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDAW
+
+pve_timezone: "America/New_York"
+pve_keyboard: "en-us"
+pve_country: "us" # lower case for country code
+pve_mailto: "admin@lab.lan"
+
+
+pve_users: # Users have not been implemented yet
+  - name:  user1@pam
+    email: user1@lab.lan"
+    firstname: firstname 
+    lastname: lastname
+
+# Specific configuration for each target promox server
+pve_server_cfg:
+  - name: server1 
+    fqdn: server1.lab.lan  #
+    network:
+      mac_address: 00:50:56:8a:66:81
+      ip_address: 192.168.1.50
+    disk:
+      disk_list: [ "sda" ]
+      filesystem: "ext4"
+
+  - name: server2 
+    fqdn: server2.lab.lan  #
+    network:
+      mac_address: 00:50:56:8a:3f:87
+      ip_address: 192.168.1.51
+    disk:
+      disk_list: [ "sda" ]
+      filesystem: "ext4"
