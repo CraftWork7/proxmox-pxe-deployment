@@ -23,7 +23,7 @@ cpio -idv < ../initrd.img.cpio
 find . | cpio -H newc -o | gzip -9 > {{ tftp_root }}/initrd.img
 
 # Fix SELinux label
-restorecon -R -v /var/lib/tftpboot
+restorecon -R -v {{ tftp_root }}
 
 umount $TEMP_ISO_DIR
 rm -rf $WORK_DIR
