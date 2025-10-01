@@ -1,9 +1,9 @@
-- name: Set the variable tempory directory
+- name: Set the variable temporary directory
   ansible.builtin.set_fact:
     pve_iso_tmp: "/tmp/pve-pxe"
   tags: proxmox
 
-- name: Ensure the temporory directory exist
+- name: Ensure the iso temporary directory exist
   ansible.builtin.file:
     path: "{{ pve_iso_tmp }}"
     state: directory
@@ -58,6 +58,13 @@
     fqdn: "{{ item.fqdn }}"
     filesystem: "{{ item.disk.filesystem }}"
     disk_list: "{{ item.disk.disk_list }}"
+  tags: proxmox
+
+- name: Create  first boot for user creation
+  ansible.builtin.template:
+    src: "first-boot.sh.j2"
+    dest: "{{ http_answer_root }}/first-boot.sh"
+    mode: "0755"
   tags: proxmox
 
 

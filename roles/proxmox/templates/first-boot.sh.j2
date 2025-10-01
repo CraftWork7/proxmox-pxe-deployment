@@ -1,0 +1,28 @@
+#!/bin/bash
+
+{% for user in pve_users %}
+{% set username = user.username | lower  %}
+
+# Create a standard Linux user with a home directory
+useradd -m -s {{ user.shell | default("/bin/bash") }} -c "{{ user.comment | default("") }}" {{ user.username }}
+
+# Set a password for the new user. 
+echo "{{ user.username }}:{{ user.password }}" | chpasswd
+
+# Add the user to the Proxmox `pveum` PAM realm
+# This makes the Linux user available in the Proxmox web UI
+pveum useradd {{ user.username }}@pam
+
+
+# Administrator
+{% if user.role is defined and "admin" in user.role|lower %}
+
+# Assign the user to the 'sudo' group for administrative privileges
+usermod -aG sudo {{ user.username }}
+
+# Grant the new user full administrator privileges in Proxmox
+# The path '/' grants permissions for the entire datacenter
+pveum acl modify / -user {{ user.username }}@pam -role Administrator
+{% endif%}
+
+{% endfor %}

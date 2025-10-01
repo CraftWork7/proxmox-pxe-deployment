@@ -18,6 +18,6 @@ source = "from-dhcp"
 filesystem = "{{ filesystem }}"
 disk_list = [ "{{ disk_list | join(',') }}" ] # List of disks to use (e.g., "sda", "nvme0n1")
 
-#[first-boot]
-#source = "from-http" # Or "from-http" if fetching a script from an HTTP server
-# exec = "/path/to/script.sh" # Optional: Path to a script to execute on first boot
+[first-boot]
+source = "from-url" 
+url = "http://{{ pxe_server_ip }}/answers/first-boot.sh"

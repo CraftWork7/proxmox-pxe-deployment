@@ -39,11 +39,17 @@ pve_country: "us" # lower case for country code
 pve_mailto: "admin@lab.lan"
 
 
-pve_users: # Users have not been implemented yet
-  - name:  user1@pam
-    email: user1@lab.lan"
-    firstname: firstname 
-    lastname: lastname
+# Local linux and PVE Web users
+pve_users:
+  - username:  user1
+    shell: "/bin/bash"
+    role: Administrator       # Define this role if you want an administrator user
+    comment: "Proxmox Administrator user"
+    password: "VerySecurePassword!"
+
+  - username:  user2
+    comment: "regular user"
+    password: "VerySecurePassword!"
 
 # Specific configuration for each target promox server
 pve_server_cfg:
